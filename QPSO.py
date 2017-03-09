@@ -4,86 +4,94 @@ import numpy as np
 import matplotlib.pyplot as plt
 from keras.models import load_model
 
-decoder = load_model('Compiled/simpleAutoencoders_decoder.h5')
-nuclei_data = np.genfromtxt('CRCHistoDataSets/Detection/nucleis_data.dat', delimiter=',')
-nuclei_data = nuclei_data.astype('float32') / 255.
-nuclei = nuclei_data[4].copy()
+class QPSO():
 
-plt.imshow(nuclei.reshape(17, 17, 3, order="F"))
-plt.title('Original Input Image')
-plt.show()
+    def __init__(self, particleNum, dim, maxIteration, rangeL, rangeR, rangeMax):
 
-def cost(arg):
-    decoded = decoder.predict(arg.reshape(1, 64))
-    return np.sqrt(np.sum((decoded - nuclei)**2))
+        self.decoder = load_model('Compiled/simpleAutoencoders_decoder.h5')
+        self.nuclei_data = np.genfromtxt('CRCHistoDataSets/Detection/nucleis_data.dat', delimiter=',')
+        self.nuclei_data = self.nuclei_data.astype('float32') / 255.
+        self.nuclei = self.nuclei_data[4].copy()
+        self.particleNum = particleNum #200
+        self.maxIteration = maxIteration #1000
+        self.dim = dim #64
+        self.rangeL = rangeL #0
+        self.rangeR = rangeR #15
+        self.rangeMax = rangeMax #15
 
-particleNum = 200
-maxIteration = 1000
-dim = 64
-rangeL = 0
-rangeR = 15
-rangMax = 15
+    def show_original(self):
 
-x = (rangeR - rangeL) * np.random.rand(particleNum, dim) + rangeL
-x = x.astype('float32')
+        plt.imshow(self.nuclei.reshape(17, 17, 3, order="F"))
+        plt.title('Original Input Image')
+        plt.show()
 
-pbest = x.copy()
-gbest = np.zeros((dim), 'float32')
-mbest = np.zeros((dim), 'float32')
+    def cost(self, arg):
 
-f_x = np.zeros((particleNum), 'float32')
-f_pbest = np.zeros((particleNum), 'float32')
+        decoded = self.decoder.predict(arg.reshape(1, 64))
+        return np.sqrt(np.sum((decoded - self.nuclei)**2))
 
-for i in range(0, particleNum, 1):
-    f_x[i] = cost(x[i])
-    f_pbest[i] = f_x[i]
+    def qpso(self):
 
-g = np.argmin(f_pbest)
-gbest = pbest[g]
-f_gbest = f_pbest[g]
+        x = (self.rangeR - self.rangeL) * np.random.rand(self.particleNum, self.dim) + self.rangeL
+        x = x.astype('float32')
 
-MINIMUM = f_gbest
+        pbest = x.copy()
+        gbest = np.zeros((self.dim), 'float32')
+        mbest = np.zeros((self.dim), 'float32')
 
-for t in range(0, maxIteration, 1):
+        f_x = np.zeros((self.particleNum), 'float32')
+        f_pbest = np.zeros((self.particleNum), 'float32')
 
-    beta = 0.5 * (maxIteration - t) / maxIteration + 0.5
-    mbest = np.sum(pbest, axis = 0) / particleNum
-
-    for i in range(0, particleNum, 1):
-
-        fi = np.random.rand(dim)
-        p = fi * pbest[i] + (1 - fi) * gbest
-        u = np.random.rand(dim)
-        b = beta * np.absolute(mbest - x[i])
-        v = -1 * np.log(u)
-        y = p + ((-1) ** np.ceil(0.5 + np.random.rand(dim))) * b * v
-        x[i] = np.sign(y) * np.minimum(np.absolute(y), rangMax)
-        x[i] = np.absolute(x[i])
-        f_x[i] = cost(x[i])
-
-        if f_x[i] < f_pbest[i]:
-            pbest[i] = x[i]
+        for i in range(0, self.particleNum, 1):
+            f_x[i] = self.cost(x[i])
             f_pbest[i] = f_x[i]
-        if f_pbest[i] < f_gbest:
-            gbest = pbest[i]
-            f_gbest = f_pbest[i]
+
+        g = np.argmin(f_pbest)
+        gbest = pbest[g]
+        f_gbest = f_pbest[g]
 
         MINIMUM = f_gbest
 
-    print(str(t) + " " + str(MINIMUM))
-    to_show = decoder.predict(gbest.reshape(1, 64))
-    plt.imshow(to_show.reshape(17, 17, 3, order="F"))
-    plt.title('Loss: ' + str(MINIMUM))
-    plt.savefig('Animation' + '\img' + str(t) + '.png')
-    plt.clf()
-    plt.cla()
-    plt.close('all')
+        for t in range(0, self.maxIteration, 1):
 
-print(MINIMUM)
-print(gbest)
-to_show = decoder.predict(gbest.reshape(1, 64))
-plt.imshow(to_show.reshape(17, 17, 3, order="F"))
-plt.show()
+            beta = 0.5 * (self.maxIteration - t) / self.maxIteration + 0.5
+            mbest = np.sum(pbest, axis = 0) / self.particleNum
+
+            for i in range(0, self.particleNum, 1):
+
+                fi = np.random.rand(self.dim)
+                p = fi * pbest[i] + (1 - fi) * gbest
+                u = np.random.rand(self.dim)
+                b = beta * np.absolute(mbest - x[i])
+                v = -1 * np.log(u)
+                y = p + ((-1) ** np.ceil(0.5 + np.random.rand(self.dim))) * b * v
+                x[i] = np.sign(y) * np.minimum(np.absolute(y), self.rangeMax)
+                x[i] = np.absolute(x[i])
+                f_x[i] = self.cost(x[i])
+
+                if f_x[i] < f_pbest[i]:
+                    pbest[i] = x[i]
+                    f_pbest[i] = f_x[i]
+                if f_pbest[i] < f_gbest:
+                    gbest = pbest[i]
+                    f_gbest = f_pbest[i]
+
+                MINIMUM = f_gbest
+
+            print(str(t) + " " + str(MINIMUM))
+            to_show = self.decoder.predict(gbest.reshape(1, 64))
+            plt.imshow(to_show.reshape(17, 17, 3, order="F"))
+            plt.title('Loss: ' + str(MINIMUM))
+            plt.savefig('Animation' + '\img' + str(t) + '.png')
+            plt.clf()
+            plt.cla()
+            plt.close('all')
+
+        print(MINIMUM)
+        print(gbest)
+        to_show = self.decoder.predict(gbest.reshape(1, 64))
+        plt.imshow(to_show.reshape(17, 17, 3, order="F"))
+        plt.show()
 
 
 
